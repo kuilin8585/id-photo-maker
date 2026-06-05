@@ -155,6 +155,31 @@ header {
 .upload-hint { font-size: 12px; color: var(--ink2); line-height: 1.5; font-weight: 500; }
 .upload-hint span { font-size: 11px; color: var(--ink3); font-weight: 400; display: block; margin-top: 2px; }
 
+/* Live preview */
+.live-preview-wrap {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.live-preview-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ink3);
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+#live-canvas {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  background: #fff;
+}
+
 /* Crop controls */
 .crop-controls { display: flex; flex-direction: column; gap: 14px; }
 .ctrl-row { display: flex; flex-direction: column; gap: 5px; }
@@ -341,10 +366,15 @@ input[type=range] {
           </div>
         </div>
       </div>
+
     </div>
 
     <div class="panel-block">
       <div class="block-label">Adjust</div>
+      <div class="live-preview-wrap" id="live-preview-wrap">
+        <div class="live-preview-label">Live preview</div>
+        <canvas id="live-canvas"></canvas>
+      </div>
       <div class="crop-controls">
         <div class="ctrl-row">
           <div class="ctrl-label">Zoom <span class="ctrl-val" id="zoom-val">100%</span></div>
@@ -359,18 +389,12 @@ input[type=range] {
           <input type="range" id="offsety" min="-100" max="100" value="0" step="1" oninput="updatePreview()">
         </div>
         <div class="ctrl-row">
-          <div class="ctrl-label">Background</div>
-          <div style="display:flex;gap:8px;margin-top:4px">
-            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
-              <input type="radio" name="bg" value="white" checked onchange="updatePreview()" style="accent-color:var(--accent)"> White
-            </label>
-            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
-              <input type="radio" name="bg" value="lightblue" onchange="updatePreview()" style="accent-color:var(--accent)"> Light blue
-            </label>
-            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
-              <input type="radio" name="bg" value="gray" onchange="updatePreview()" style="accent-color:var(--accent)"> Gray
-            </label>
-          </div>
+          <div class="ctrl-label">Brightness <span class="ctrl-val" id="brightness-val">100%</span></div>
+          <input type="range" id="brightness" min="50" max="150" value="100" step="1" oninput="updatePreview()">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label">Contrast <span class="ctrl-val" id="contrast-val">100%</span></div>
+          <input type="range" id="contrast" min="50" max="150" value="100" step="1" oninput="updatePreview()">
         </div>
       </div>
     </div>
@@ -491,7 +515,9 @@ document.getElementById('file-input').addEventListener('change', function() {
       document.getElementById('zoom').value = 100;
       document.getElementById('offsetx').value = 0;
       document.getElementById('offsety').value = 0;
-      updateSliderLabels();
+      document.getElementById('brightness').value = 100;
+      document.getElementById('contrast').value = 100;
+      updatePreview();
     };
     img.src = e.target.result;
   };
@@ -519,16 +545,83 @@ function updateSliderLabels() {
   document.getElementById('zoom-val').textContent = document.getElementById('zoom').value + '%';
   document.getElementById('offsetx-val').textContent = document.getElementById('offsetx').value;
   document.getElementById('offsety-val').textContent = document.getElementById('offsety').value;
+  document.getElementById('brightness-val').textContent = document.getElementById('brightness').value + '%';
+  document.getElementById('contrast-val').textContent = document.getElementById('contrast').value + '%';
 }
+
+// ── CSS filter string from current slider values ────────────────────────────
+function currentFilter() {
+  const b = document.getElementById('brightness').value;
+  const c = document.getElementById('contrast').value;
+  return `brightness(${b}%) contrast(${c}%)`;
+}
+
+// ── Live single-photo preview ────────────────────────────────────────────────
+let liveRafId = null;
 
 function updatePreview() {
   updateSliderLabels();
+  if (!originalImage) return;
+
+  // Show live preview canvas
+  const wrap = document.getElementById('live-preview-wrap');
+  wrap.style.display = 'flex';
+
+  // Draw live preview at ~200px wide (proportional to 35×45)
+  const liveCanvas = document.getElementById('live-canvas');
+  const LIVE_W = 200;
+  const LIVE_H = Math.round(LIVE_W * (45 / 35));
+  liveCanvas.width = LIVE_W;
+  liveCanvas.height = LIVE_H;
+
+  const ctx = liveCanvas.getContext('2d');
+  const zoom = parseFloat(document.getElementById('zoom').value);
+  const offX = parseFloat(document.getElementById('offsetx').value);
+  const offY = parseFloat(document.getElementById('offsety').value);
+  // Background (white)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, LIVE_W, LIVE_H);
+
+  // Scale & position image
+  const scale = zoom / 100;
+  const src = originalImage;
+  const imgAspect = src.width / src.height;
+  const photoAspect = LIVE_W / LIVE_H;
+
+  let baseW, baseH;
+  if (imgAspect > photoAspect) {
+    baseH = LIVE_H;
+    baseW = LIVE_H * imgAspect;
+  } else {
+    baseW = LIVE_W;
+    baseH = LIVE_W / imgAspect;
+  }
+
+  const drawW = baseW * scale;
+  const drawH = baseH * scale;
+  const drawX = (LIVE_W - drawW) / 2 + offX * (LIVE_W / 100);
+  const drawY = (LIVE_H - drawH) / 2 + offY * (LIVE_H / 100);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, LIVE_W, LIVE_H);
+  ctx.clip();
+  ctx.filter = currentFilter();
+  ctx.drawImage(src, drawX, drawY, drawW, drawH);
+  ctx.filter = 'none';
+  ctx.restore();
+
+  // If the sheet is already visible, auto-regenerate it (debounced)
+  if (document.getElementById('sheet-container').style.display === 'block') {
+    cancelAnimationFrame(liveRafId);
+    liveRafId = requestAnimationFrame(generateSheet);
+  }
 }
 
 // ── Draw one ID photo onto a canvas context ─────────────────────────────────
-function drawIDPhoto(ctx, destX, destY, img, zoom, offX, offY, bgColor) {
-  // Background
-  ctx.fillStyle = bgColor === 'lightblue' ? '#dce9f5' : bgColor === 'gray' ? '#d0d0d0' : '#ffffff';
+function drawIDPhoto(ctx, destX, destY, img, zoom, offX, offY) {
+  // Background (white)
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(destX, destY, PHOTO_W, PHOTO_H);
 
   // Compute scaled image size keeping aspect ratio, then apply zoom
@@ -550,12 +643,14 @@ function drawIDPhoto(ctx, destX, destY, img, zoom, offX, offY, bgColor) {
   const drawX = destX + (PHOTO_W - drawW) / 2 + offX * (PHOTO_W / 100);
   const drawY = destY + (PHOTO_H - drawH) / 2 + offY * (PHOTO_H / 100);
 
-  // Clip to photo bounds
+  // Clip to photo bounds, apply brightness/contrast filter
   ctx.save();
   ctx.beginPath();
   ctx.rect(destX, destY, PHOTO_W, PHOTO_H);
   ctx.clip();
+  ctx.filter = currentFilter();
   ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  ctx.filter = 'none';
   ctx.restore();
 }
 
@@ -604,8 +699,6 @@ function generateSheet() {
   const zoom = parseFloat(document.getElementById('zoom').value);
   const offX = parseFloat(document.getElementById('offsetx').value);
   const offY = parseFloat(document.getElementById('offsety').value);
-  const bgColor = document.querySelector('input[name="bg"]:checked').value;
-
   // Use setTimeout so the browser can render the spinner first
   setTimeout(() => {
     try {
@@ -624,7 +717,7 @@ function generateSheet() {
         for (let col = 0; col < COLS; col++) {
           const x = MARGIN_X + col * PHOTO_W;
           const y = MARGIN_Y + row * PHOTO_H;
-          drawIDPhoto(ctx, x, y, originalImage, zoom, offX, offY, bgColor);
+          drawIDPhoto(ctx, x, y, originalImage, zoom, offX, offY);
         }
       }
 

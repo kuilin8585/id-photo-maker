@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ID Photo Maker — 35×45mm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Syne+Mono&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f2ed;
+  --surface: #ffffff;
+  --surface2: #edeae4;
+  --surface3: #e0ddd6;
+  --ink: #1a1814;
+  --ink2: #5a5650;
+  --ink3: #9a9690;
+  --accent: #c8321a;
+  --accent-light: #fde8e4;
+  --border: #d8d4cd;
+  --sans: 'Syne', sans-serif;
+  --mono: 'Syne Mono', monospace;
+  --shadow: 0 1px 3px rgba(26,24,20,0.08), 0 4px 16px rgba(26,24,20,0.06);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+header {
+  background: var(--ink);
+  color: #f5f2ed;
+  padding: 0 36px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.header-logo {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.header-logo .big { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
+.header-logo .small { font-family: var(--mono); font-size: 11px; color: #9a9690; }
+.header-badge {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border: 1px solid rgba(200,50,26,0.5);
+  border-radius: 3px;
+  color: #e87060;
+  letter-spacing: 0.06em;
+}
+.header-spec {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #6a6660;
+  letter-spacing: 0.04em;
+}
+
+/* ── Layout ── */
+.workspace {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  flex: 1;
+  min-height: calc(100vh - 56px);
+}
+
+/* ── Left panel ── */
+.left-panel {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panel-block {
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-block:last-child { border-bottom: none; flex: 1; }
+
+.block-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink3);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.block-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Upload */
+.upload-area {
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  aspect-ratio: 35/45;
+  max-width: 180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.upload-area:hover { border-color: var(--accent); background: var(--accent-light); }
+.upload-area.has-image { border-style: solid; border-color: var(--ink); }
+.upload-area input { display: none; }
+#preview-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: none;
+  position: absolute;
+  inset: 0;
+}
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+}
+.upload-icon-wrap {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.upload-hint { font-size: 12px; color: var(--ink2); line-height: 1.5; font-weight: 500; }
+.upload-hint span { font-size: 11px; color: var(--ink3); font-weight: 400; display: block; margin-top: 2px; }
+
+/* Crop controls */
+.crop-controls { display: flex; flex-direction: column; gap: 14px; }
+.ctrl-row { display: flex; flex-direction: column; gap: 5px; }
+.ctrl-label {
+  font-size: 11px;
+  color: var(--ink2);
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ctrl-val { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+input[type=range] {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 3px;
+  cursor: pointer;
+}
+
+/* Specs info */
+.spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.spec-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.spec-num { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 2px; }
+.spec-desc { font-size: 10px; color: var(--ink3); font-family: var(--mono); }
+.spec-card.accent { background: var(--accent-light); border-color: rgba(200,50,26,0.2); }
+.spec-card.accent .spec-num { color: var(--accent); }
+
+/* Buttons */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  background: var(--ink);
+  color: #f5f2ed;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 0.01em;
+}
+.btn-primary:hover { background: #2a2520; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { background: var(--surface3); color: var(--ink3); cursor: not-allowed; transform: none; }
+
+.btn-download {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.btn-download:hover { background: var(--accent); color: white; }
+.btn-download:disabled { border-color: var(--border); color: var(--ink3); cursor: not-allowed; }
+.btn-download:disabled:hover { background: transparent; color: var(--ink3); }
+
+/* ── Right panel ── */
+.right-panel {
+  background: var(--surface2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 32px;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.preview-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink3);
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.sheet-container {
+  background: white;
+  box-shadow: var(--shadow), 0 8px 40px rgba(26,24,20,0.12);
+  position: relative;
+  display: none;
+}
+
+.sheet-canvas-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+#sheet-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.empty-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--ink3);
+  height: 400px;
+  text-align: center;
+}
+.empty-big { font-size: 48px; opacity: 0.3; }
+.empty-text { font-size: 14px; font-weight: 500; }
+.empty-sub { font-size: 12px; color: var(--ink3); }
+
+.print-info {
+  display: flex;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  letter-spacing: 0.04em;
+}
+.print-info span { display: flex; align-items: center; gap: 5px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* Progress */
+#progress-wrap { display: none; align-items: center; gap: 10px; font-size: 12px; color: var(--ink2); }
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 780px) {
+  .workspace { grid-template-columns: 1fr; }
+  .right-panel { min-height: 50vh; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-logo">
+    <span class="big">ID Photo</span>
+    <span class="small">&nbsp;maker</span>
+  </div>
+  <div class="header-badge">35 × 45 mm</div>
+  <div class="header-spec">15 × 10 cm print sheet · 600 DPI · 8 photos</div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left panel -->
+  <aside class="left-panel">
+
+    <div class="panel-block">
+      <div class="block-label">Photo</div>
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept="image/*">
+        <img id="preview-img" alt="Preview">
+        <div class="upload-placeholder" id="upload-placeholder">
+          <div class="upload-icon-wrap">📷</div>
+          <div class="upload-hint">Click to upload photo
+            <span>JPG, PNG, WEBP supported</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-block">
+      <div class="block-label">Adjust</div>
+      <div class="crop-controls">
+        <div class="ctrl-row">
+          <div class="ctrl-label">Zoom <span class="ctrl-val" id="zoom-val">100%</span></div>
+          <input type="range" id="zoom" min="50" max="200" value="100" step="1" oninput="updatePreview()">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label">Move horizontal <span class="ctrl-val" id="offsetx-val">0</span></div>
+          <input type="range" id="offsetx" min="-100" max="100" value="0" step="1" oninput="updatePreview()">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label">Move vertical <span class="ctrl-val" id="offsety-val">0</span></div>
+          <input type="range" id="offsety" min="-100" max="100" value="0" step="1" oninput="updatePreview()">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label">Background</div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+              <input type="radio" name="bg" value="white" checked onchange="updatePreview()" style="accent-color:var(--accent)"> White
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+              <input type="radio" name="bg" value="lightblue" onchange="updatePreview()" style="accent-color:var(--accent)"> Light blue
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer">
+              <input type="radio" name="bg" value="gray" onchange="updatePreview()" style="accent-color:var(--accent)"> Gray
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-block">
+      <div class="block-label">Specs</div>
+      <div class="spec-grid">
+        <div class="spec-card accent">
+          <div class="spec-num">35×45</div>
+          <div class="spec-desc">mm per photo</div>
+        </div>
+        <div class="spec-card">
+          <div class="spec-num">8 pcs</div>
+          <div class="spec-desc">per sheet</div>
+        </div>
+        <div class="spec-card">
+          <div class="spec-num">15×10</div>
+          <div class="spec-desc">cm print sheet</div>
+        </div>
+        <div class="spec-card">
+          <div class="spec-num">600 DPI</div>
+          <div class="spec-desc">print quality</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-block">
+      <div class="block-label">Generate</div>
+      <div id="progress-wrap">
+        <div class="spinner"></div>
+        <span id="progress-text">Processing…</span>
+      </div>
+      <button class="btn-primary" id="btn-generate" onclick="generateSheet()" disabled>
+        Generate print sheet
+      </button>
+      <button class="btn-download" id="btn-download" onclick="downloadSheet()" disabled>
+        ⬇ Download PNG (600 DPI)
+      </button>
+      <div style="margin-top:12px;font-size:11px;color:var(--ink3);line-height:1.6">
+        Output: <strong style="color:var(--ink2)">3543 × 2362 px</strong> — send directly to a photo lab or print on 10×15cm paper.
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Right panel -->
+  <main class="right-panel">
+    <div class="preview-label">Print sheet preview</div>
+
+    <div id="empty-preview" class="empty-preview">
+      <div class="empty-big">🪪</div>
+      <div class="empty-text">Upload a photo to begin</div>
+      <div class="empty-sub">Your 8-photo sheet will appear here</div>
+    </div>
+
+    <div class="sheet-container" id="sheet-container">
+      <canvas id="sheet-canvas"></canvas>
+    </div>
+
+    <div class="print-info" id="print-info" style="display:none">
+      <span><span class="dot"></span>Dashed lines = trim marks</span>
+      <span>· 3543 × 2362 px · 600 DPI</span>
+      <span>· 4 cols × 2 rows</span>
+    </div>
+  </main>
+
+</div>
+
+<script>
+// ── Constants ───────────────────────────────────────────────────────────────
+const DPI = 600;
+const MM_TO_PX = DPI / 25.4;
+
+// Sheet: 150mm × 100mm at 600dpi
+const SHEET_W = Math.round(150 * MM_TO_PX); // 3543px
+const SHEET_H = Math.round(100 * MM_TO_PX); // 2362px
+
+// ID photo: 35mm × 45mm
+const PHOTO_W = Math.round(35 * MM_TO_PX);  // 827px
+const PHOTO_H = Math.round(45 * MM_TO_PX);  // 1063px
+
+// Grid: 4 cols × 2 rows = 8 photos
+const COLS = 4;
+const ROWS = 2;
+
+// Margins to center the grid on the sheet
+const TOTAL_PHOTO_W = COLS * PHOTO_W; // 1653px
+const TOTAL_PHOTO_H = ROWS * PHOTO_H; // 1063px
+const MARGIN_X = Math.round((SHEET_W - TOTAL_PHOTO_W) / 2); // ~60px
+const MARGIN_Y = Math.round((SHEET_H - TOTAL_PHOTO_H) / 2); // ~59px
+
+// Trim line style
+const TRIM_COLOR = '#cc3322';
+const TRIM_DASH = [6, 4];
+const TRIM_WIDTH = 1.5;
+const TRIM_OVERHANG = 10; // px past the photo edge
+
+// ── State ───────────────────────────────────────────────────────────────────
+let originalImage = null;
+let sheetBlob = null;
+
+// ── File input ──────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      originalImage = img;
+      const preview = document.getElementById('preview-img');
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      document.getElementById('upload-placeholder').style.display = 'none';
+      document.getElementById('upload-area').classList.add('has-image');
+      document.getElementById('btn-generate').disabled = false;
+      // Reset sliders
+      document.getElementById('zoom').value = 100;
+      document.getElementById('offsetx').value = 0;
+      document.getElementById('offsety').value = 0;
+      updateSliderLabels();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+// Drag & drop
+const ua = document.getElementById('upload-area');
+ua.addEventListener('dragover', e => { e.preventDefault(); ua.style.borderColor = 'var(--accent)'; });
+ua.addEventListener('dragleave', () => { ua.style.borderColor = ''; });
+ua.addEventListener('drop', e => {
+  e.preventDefault();
+  ua.style.borderColor = '';
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('file-input').files = dt.files;
+    document.getElementById('file-input').dispatchEvent(new Event('change'));
+  }
+});
+
+// ── Slider labels ───────────────────────────────────────────────────────────
+function updateSliderLabels() {
+  document.getElementById('zoom-val').textContent = document.getElementById('zoom').value + '%';
+  document.getElementById('offsetx-val').textContent = document.getElementById('offsetx').value;
+  document.getElementById('offsety-val').textContent = document.getElementById('offsety').value;
+}
+
+function updatePreview() {
+  updateSliderLabels();
+}
+
+// ── Draw one ID photo onto a canvas context ─────────────────────────────────
+function drawIDPhoto(ctx, destX, destY, img, zoom, offX, offY, bgColor) {
+  // Background
+  ctx.fillStyle = bgColor === 'lightblue' ? '#dce9f5' : bgColor === 'gray' ? '#d0d0d0' : '#ffffff';
+  ctx.fillRect(destX, destY, PHOTO_W, PHOTO_H);
+
+  // Compute scaled image size keeping aspect ratio, then apply zoom
+  const scale = zoom / 100;
+  const imgAspect = img.width / img.height;
+  const photoAspect = PHOTO_W / PHOTO_H;
+
+  let baseW, baseH;
+  if (imgAspect > photoAspect) {
+    baseH = PHOTO_H;
+    baseW = PHOTO_H * imgAspect;
+  } else {
+    baseW = PHOTO_W;
+    baseH = PHOTO_W / imgAspect;
+  }
+
+  const drawW = baseW * scale;
+  const drawH = baseH * scale;
+  const drawX = destX + (PHOTO_W - drawW) / 2 + offX * (PHOTO_W / 100);
+  const drawY = destY + (PHOTO_H - drawH) / 2 + offY * (PHOTO_H / 100);
+
+  // Clip to photo bounds
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(destX, destY, PHOTO_W, PHOTO_H);
+  ctx.clip();
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  ctx.restore();
+}
+
+// ── Draw trim lines ──────────────────────────────────────────────────────────
+function drawTrimLines(ctx) {
+  ctx.save();
+  ctx.strokeStyle = TRIM_COLOR;
+  ctx.lineWidth = TRIM_WIDTH;
+  ctx.setLineDash(TRIM_DASH);
+  ctx.globalAlpha = 0.85;
+
+  // Vertical trim lines: left edge of each col, plus right edge of last col
+  for (let col = 0; col <= COLS; col++) {
+    const x = MARGIN_X + col * PHOTO_W;
+    const topY = MARGIN_Y - TRIM_OVERHANG;
+    const botY = MARGIN_Y + ROWS * PHOTO_H + TRIM_OVERHANG;
+    ctx.beginPath();
+    ctx.moveTo(x, topY);
+    ctx.lineTo(x, botY);
+    ctx.stroke();
+  }
+
+  // Horizontal trim lines: top edge of each row, plus bottom edge of last row
+  for (let row = 0; row <= ROWS; row++) {
+    const y = MARGIN_Y + row * PHOTO_H;
+    const leftX = MARGIN_X - TRIM_OVERHANG;
+    const rightX = MARGIN_X + COLS * PHOTO_W + TRIM_OVERHANG;
+    ctx.beginPath();
+    ctx.moveTo(leftX, y);
+    ctx.lineTo(rightX, y);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ── Generate sheet ───────────────────────────────────────────────────────────
+function generateSheet() {
+  if (!originalImage) return;
+
+  const progressWrap = document.getElementById('progress-wrap');
+  const btnGenerate = document.getElementById('btn-generate');
+  progressWrap.style.display = 'flex';
+  btnGenerate.disabled = true;
+
+  const zoom = parseFloat(document.getElementById('zoom').value);
+  const offX = parseFloat(document.getElementById('offsetx').value);
+  const offY = parseFloat(document.getElementById('offsety').value);
+  const bgColor = document.querySelector('input[name="bg"]:checked').value;
+
+  // Use setTimeout so the browser can render the spinner first
+  setTimeout(() => {
+    try {
+      // Full-res canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = SHEET_W;
+      canvas.height = SHEET_H;
+      const ctx = canvas.getContext('2d', { alpha: false });
+
+      // White sheet background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, SHEET_W, SHEET_H);
+
+      // Draw 8 photos
+      for (let row = 0; row < ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          const x = MARGIN_X + col * PHOTO_W;
+          const y = MARGIN_Y + row * PHOTO_H;
+          drawIDPhoto(ctx, x, y, originalImage, zoom, offX, offY, bgColor);
+        }
+      }
+
+      // Draw trim lines on top
+      drawTrimLines(ctx);
+
+      // Show preview (scaled down to fit)
+      const displayCanvas = document.getElementById('sheet-canvas');
+      const maxW = document.querySelector('.right-panel').clientWidth - 64;
+      const scale = Math.min(1, maxW / SHEET_W);
+      displayCanvas.width = Math.round(SHEET_W * scale);
+      displayCanvas.height = Math.round(SHEET_H * scale);
+      const dctx = displayCanvas.getContext('2d');
+      dctx.drawImage(canvas, 0, 0, displayCanvas.width, displayCanvas.height);
+
+      document.getElementById('empty-preview').style.display = 'none';
+      document.getElementById('sheet-container').style.display = 'block';
+      document.getElementById('print-info').style.display = 'flex';
+      document.getElementById('btn-download').disabled = false;
+
+      // Store full-res for download
+      canvas.toBlob(blob => {
+        sheetBlob = blob;
+      }, 'image/png');
+
+    } finally {
+      progressWrap.style.display = 'none';
+      btnGenerate.disabled = false;
+    }
+  }, 60);
+}
+
+// ── Download ─────────────────────────────────────────────────────────────────
+function downloadSheet() {
+  if (!sheetBlob) return;
+  const url = URL.createObjectURL(sheetBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'id_photo_35x45mm_print.png';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+</script>
+</body>
+</html>

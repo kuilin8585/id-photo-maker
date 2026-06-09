@@ -9,7 +9,647 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:#0c0c0c;color:#ddd;font-family:'IBM Plex Mono',monospace;min-height:100vh;display:flex;flex-direction:column}
 
-  header{background:#000;border-bottom:3px solid #F28020;padding:11px 22px;display:flex;align-items:baseline;gap:14px;flex-shrink:0}
+  header{background:#000;border-bottom:3px solid #F28020;padding:11px 22px;display:flex;align-ite<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Warhol × Banksy</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;700&display=swap');
+
+  :root {
+    --orange: #F28020;
+    --yellow: #F9C020;
+    --red:    #E8181A;
+    --bg:     #0c0c0c;
+    --panel:  #111111;
+    --border: #222222;
+    --text:   #cccccc;
+    --muted:  #555555;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    overflow: hidden; /* no scroll on body — internal scroll only */
+  }
+
+  /* ── LAYOUT: full-height flex column ── */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh; /* dynamic viewport height — correct on mobile */
+  }
+
+  /* ── HEADER ── */
+  .hdr {
+    background: #000;
+    border-bottom: 3px solid var(--orange);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .hdr-title {
+    font-family: 'Anton', sans-serif;
+    font-size: 1.3rem;
+    letter-spacing: .08em;
+    color: var(--yellow);
+    text-shadow: 1px 1px 0 var(--orange);
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .hdr-title .x { color: var(--red); }
+  .hdr-sub {
+    font-size: .5rem;
+    color: var(--muted);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── CANVAS ZONE — takes all available space ── */
+  .canvas-zone {
+    flex: 1;
+    min-height: 0;
+    background: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #mainCanvas {
+    display: none;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* Upload tap area — shown when no image */
+  .upload-tap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    padding: 24px;
+  }
+  .upload-tap input { display: none; }
+  .upload-tap .ut-icon {
+    width: 80px; height: 80px;
+    border: 2px dashed #333;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; color: #333;
+    transition: all .2s;
+  }
+  .upload-tap:active .ut-icon,
+  .upload-tap.over .ut-icon {
+    border-color: var(--orange);
+    color: var(--orange);
+    background: rgba(242,128,32,.06);
+  }
+  .upload-tap h2 {
+    font-family: 'Anton', sans-serif;
+    font-size: 1.1rem;
+    letter-spacing: .08em;
+    color: #333;
+    text-transform: uppercase;
+  }
+  .upload-tap p {
+    font-size: .6rem;
+    color: #2e2e2e;
+    text-align: center;
+    line-height: 1.7;
+  }
+  .ph-diptych { display: flex; gap: 6px; }
+  .ph-panel {
+    display: grid;
+    grid-template-columns: repeat(5,1fr);
+    grid-template-rows: repeat(5,1fr);
+    gap: 2px; width: 100px; height: 100px;
+  }
+  .ph-cell { border-radius: 1px; }
+
+  /* ── BOTTOM SHEET (settings + download) ── */
+  .sheet {
+    flex-shrink: 0;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    z-index: 20;
+  }
+
+  /* Sheet drag handle + toggle */
+  .sheet-handle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 44px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .sheet-handle .sh-label {
+    font-family: 'Anton', sans-serif;
+    font-size: .7rem;
+    letter-spacing: .12em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .sheet-handle .sh-arrow {
+    font-size: 1rem;
+    color: var(--muted);
+    transition: transform .25s;
+  }
+  .sheet.open .sh-arrow { transform: rotate(180deg); }
+
+  /* Sheet body — slides in/out */
+  .sheet-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .3s ease;
+  }
+  .sheet.open .sheet-body {
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  .sheet-inner {
+    padding: 4px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* Section headings inside sheet */
+  .sh-section-title {
+    font-family: 'Anton', sans-serif;
+    font-size: .62rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .sh-section-title.orange { color: var(--orange); }
+  .sh-section-title.red    { color: var(--red); }
+
+  /* Sliders */
+  .slider-group { display: flex; flex-direction: column; gap: 14px; }
+  .sl {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sl label {
+    font-size: .6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    width: 80px;
+    flex-shrink: 0;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 4px; /* thicker for fat fingers */
+    background: #2a2a2a;
+    outline: none;
+    border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px; /* big touch target */
+    background: var(--yellow);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(249,192,32,.2);
+  }
+  input[type=range].red-thumb::-webkit-slider-thumb {
+    background: var(--red);
+    box-shadow: 0 0 0 3px rgba(232,24,26,.2);
+  }
+  .sl-v {
+    font-size: .62rem;
+    color: var(--yellow);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .sl-v.red { color: var(--red); }
+
+  /* ── BOTTOM ACTION BAR ── */
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px 12px;
+    background: #000;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .btn-upload {
+    flex: 0 0 52px;
+    height: 52px;
+    background: #1a1a1a;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--orange);
+    font-size: 1.4rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .btn-upload:active { background: #2a2a2a; }
+
+  .btn-dl {
+    flex: 1;
+    height: 52px;
+    background: var(--yellow);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Anton', sans-serif;
+    font-size: 1rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-dl:active { background: #fff; }
+  .btn-dl:disabled {
+    background: #1e1e1e;
+    color: #444;
+    cursor: not-allowed;
+  }
+
+  /* Status pill */
+  .status-pill {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,.75);
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: .52rem;
+    color: var(--orange);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    pointer-events: none;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .3s;
+  }
+  .status-pill.visible { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div>
+      <div class="hdr-title">Warhol <span class="x">×</span> Banksy</div>
+      <div class="hdr-sub">Pop Art · Street Art · Diptych</div>
+    </div>
+  </div>
+
+  <!-- CANVAS / UPLOAD ZONE -->
+  <div class="canvas-zone" id="canvasZone">
+
+    <!-- Upload tap area (shown before image) -->
+    <div class="upload-tap" id="uploadTap">
+      <input type="file" id="fi" accept="image/*" capture="user">
+      <div class="ut-icon">↑</div>
+      <div class="ph-diptych">
+        <div class="ph-panel" id="phCol"></div>
+        <div class="ph-panel" id="phBW"></div>
+      </div>
+      <h2>Tap to upload</h2>
+      <p>Choose a portrait from your camera roll<br>Face-forward photos work best</p>
+    </div>
+
+    <canvas id="mainCanvas"></canvas>
+
+    <!-- floating status -->
+    <div class="status-pill" id="statusPill">Ready</div>
+  </div>
+
+  <!-- SETTINGS SHEET -->
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle" id="sheetHandle">
+      <span class="sh-label">⚙ Adjust Settings</span>
+      <span class="sh-arrow">▲</span>
+    </div>
+    <div class="sheet-body">
+      <div class="sheet-inner">
+
+        <!-- Warhol sliders -->
+        <div>
+          <div class="sh-section-title orange">Warhol · Left Panel</div>
+          <div class="slider-group">
+            <div class="sl"><label>Contrast</label><input type="range" id="slC" min="80" max="350" value="129"><span class="sl-v" id="vC">129</span></div>
+            <div class="sl"><label>Brightness</label><input type="range" id="slB" min="60" max="180" value="162"><span class="sl-v" id="vB">162</span></div>
+            <div class="sl"><label>Threshold</label><input type="range" id="slT" min="50" max="200" value="149"><span class="sl-v" id="vT">149</span></div>
+          </div>
+        </div>
+
+        <!-- Banksy sliders -->
+        <div>
+          <div class="sh-section-title red">Banksy · Right Panel</div>
+          <div class="slider-group">
+            <div class="sl"><label>Contrast</label><input type="range" class="red-thumb" id="slBC" min="80" max="350" value="164"><span class="sl-v red" id="vBC">164</span></div>
+            <div class="sl"><label>Threshold</label><input type="range" class="red-thumb" id="slBT" min="50" max="200" value="67"><span class="sl-v red" id="vBT">67</span></div>
+            <div class="sl"><label>Spray Bleed</label><input type="range" class="red-thumb" id="slBL" min="0" max="8" value="1"><span class="sl-v red" id="vBL">1</span></div>
+            <div class="sl"><label>Wall Grain</label><input type="range" class="red-thumb" id="slBG" min="0" max="40" value="5"><span class="sl-v red" id="vBG">5</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <button class="btn-upload" id="btnUpload" title="Upload photo">📷</button>
+    <input type="file" id="fi2" accept="image/*" style="display:none">
+    <button class="btn-dl" id="btnDl" disabled>↓ Download Artwork</button>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// LEFT PANEL: Warhol 7 flat inks
+// ═══════════════════════════════════════════════════════════════════
+const INK = {
+  black:  {r:43, g:39, b:51},
+  lips:   {r:232,g:50, b:110},
+  teal:   {r:31, g:180,b:204},
+  orange: {r:242,g:128,b:32},
+  face:   {r:221,g:164,b:211},
+  yellow: {r:249,g:192,b:32},
+  white:  {r:245,g:240,b:235},
+};
+function pickInk(lum,t){
+  if(lum<t*0.37) return 'black';
+  if(lum<t*0.95) return 'lips';
+  if(lum<t*1.18) return 'teal';
+  if(lum<t*1.31) return 'orange';
+  if(lum<t*1.62) return 'face';
+  if(lum<t*1.80) return 'yellow';
+  return 'white';
+}
+function renderWarhol(srcC,cw,ch,cfg,ctx,dx,dy){
+  const buf=document.createElement('canvas');
+  buf.width=cw;buf.height=ch;
+  const bc=buf.getContext('2d');
+  bc.drawImage(srcC,0,0,cw,ch);
+  const id=bc.getImageData(0,0,cw,ch),d=id.data;
+  const cf=cfg.contrast/100,bf=cfg.brightness/100,t=cfg.threshold;
+  for(let i=0;i<d.length;i+=4){
+    let lum=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    lum=((lum*bf-128)*cf)+128;
+    lum=Math.max(0,Math.min(255,lum));
+    const c=INK[pickInk(lum,t)];
+    d[i]=c.r;d[i+1]=c.g;d[i+2]=c.b;d[i+3]=255;
+  }
+  bc.putImageData(id,0,0);
+  ctx.drawImage(buf,dx,dy);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RIGHT PANEL: Banksy stencil on concrete
+// ═══════════════════════════════════════════════════════════════════
+const WALL_BASE={r:232,g:224,b:210};
+const INK_BLACK={r:22,g:18,b:16};
+const INK_RED={r:232,g:24,b:26};
+
+function mulberry32(seed){
+  return function(){
+    seed|=0;seed=seed+0x6D2B79F5|0;
+    let t=Math.imul(seed^seed>>>15,1|seed);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+function renderBanksy(srcC,cw,ch,cfg,seed,ctx,dx,dy){
+  const buf=document.createElement('canvas');
+  buf.width=cw;buf.height=ch;
+  const bc=buf.getContext('2d');
+  bc.drawImage(srcC,0,0,cw,ch);
+  const id=bc.getImageData(0,0,cw,ch),d=id.data;
+  const cf=cfg.bContrast/100,t=cfg.bThreshold,bleed=cfg.bleed,grain=cfg.grain;
+  const rng=mulberry32(seed);
+  const bands=new Uint8Array(cw*ch);
+  for(let i=0;i<d.length;i+=4){
+    let lum=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    lum=((lum-128)*cf)+128;
+    lum=Math.max(0,Math.min(255,lum));
+    const pi=i>>2;
+    if(lum<t*0.34) bands[pi]=2;
+    else if(lum<t*1.10) bands[pi]=1;
+    else bands[pi]=0;
+  }
+  if(bleed>0){
+    const bled=new Uint8Array(bands);
+    const r=bleed;
+    for(let y=0;y<ch;y++){
+      for(let x=0;x<cw;x++){
+        if(bands[y*cw+x]===0){
+          let maxN=0;
+          for(let dy2=-r;dy2<=r;dy2++)for(let dx2=-r;dx2<=r;dx2++){
+            const nx=x+dx2,ny=y+dy2;
+            if(nx>=0&&nx<cw&&ny>=0&&ny<ch){const nb=bands[ny*cw+nx];if(nb>maxN)maxN=nb;}
+          }
+          if(maxN>0){
+            const dists=[];
+            for(let dy2=-r;dy2<=r;dy2++)for(let dx2=-r;dx2<=r;dx2++){
+              const nx=x+dx2,ny=y+dy2;
+              if(nx>=0&&nx<cw&&ny>=0&&ny<ch&&bands[ny*cw+nx]>0)dists.push(dx2*dx2+dy2*dy2);
+            }
+            if(dists.length){
+              const dist=Math.sqrt(Math.min(...dists));
+              const prob=Math.max(0,1-dist/(r*r*0.8));
+              if(rng()<prob*0.55)bled[y*cw+x]=1;
+            }
+          }
+        }
+      }
+    }
+    bands.set(bled);
+  }
+  const out=bc.createImageData(cw,ch),od=out.data;
+  for(let y=0;y<ch;y++){
+    for(let x=0;x<cw;x++){
+      const pi=y*cw+x,b=bands[pi];
+      let r2,g2,b2;
+      if(b===2){
+        r2=INK_RED.r+Math.round((rng()-0.5)*14);
+        g2=INK_RED.g+Math.round((rng()-0.5)*6);
+        b2=INK_RED.b+Math.round((rng()-0.5)*6);
+      } else if(b===1){
+        const sv=Math.round(rng()*22);
+        r2=INK_BLACK.r+sv;g2=INK_BLACK.g+sv;b2=INK_BLACK.b+sv;
+      } else {
+        const gv=grain>0?Math.round((rng()-0.5)*grain*2):0;
+        const streak=Math.sin(x*0.18+rng()*0.3)*grain*0.15;
+        r2=WALL_BASE.r+gv+streak+Math.round((rng()-0.5)*4);
+        g2=WALL_BASE.g+gv*0.9+streak;
+        b2=WALL_BASE.b+gv*0.75+streak*0.8;
+      }
+      const oi=pi*4;
+      od[oi]=Math.max(0,Math.min(255,r2));
+      od[oi+1]=Math.max(0,Math.min(255,g2));
+      od[oi+2]=Math.max(0,Math.min(255,b2));
+      od[oi+3]=255;
+    }
+  }
+  bc.putImageData(out,0,0);
+  ctx.drawImage(buf,dx,dy);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════
+let srcImg=null;
+
+function render(){
+  if(!srcImg)return;
+  setStatus('Rendering…');
+  setTimeout(()=>{
+    const COLS=5,ROWS=5,GAP=5,CW=130,CH=162;
+    const panelW=COLS*CW+(COLS+1)*GAP;
+    const panelH=ROWS*CH+(ROWS+1)*GAP;
+    const divW=10,totalW=panelW*2+divW;
+    const canvas=document.getElementById('mainCanvas');
+    canvas.width=totalW;canvas.height=panelH;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#0a0808';ctx.fillRect(0,0,totalW,panelH);
+    const asp=CW/CH,ia=srcImg.width/srcImg.height;
+    let sx=0,sy=0,sw=srcImg.width,sh=srcImg.height;
+    if(ia>asp){sw=sh*asp;sx=(srcImg.width-sw)/2;}
+    else{sh=sw/asp;sy=(srcImg.height-sh)/2;}
+    const srcC=document.createElement('canvas');
+    srcC.width=CW;srcC.height=CH;
+    srcC.getContext('2d').drawImage(srcImg,sx,sy,sw,sh,0,0,CW,CH);
+    const wCfg={
+      contrast: parseInt(document.getElementById('slC').value),
+      brightness:parseInt(document.getElementById('slB').value),
+      threshold: parseInt(document.getElementById('slT').value),
+    };
+    const bCfg={
+      bContrast: parseInt(document.getElementById('slBC').value),
+      bThreshold:parseInt(document.getElementById('slBT').value),
+      bleed:     parseInt(document.getElementById('slBL').value),
+      grain:     parseInt(document.getElementById('slBG').value),
+    };
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+      renderWarhol(srcC,CW,CH,wCfg,ctx,GAP+c*(CW+GAP),GAP+r*(CH+GAP));
+    const rx=panelW+divW;
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)
+      renderBanksy(srcC,CW,CH,bCfg,r*1000+c*137+42,ctx,rx+GAP+c*(CW+GAP),GAP+r*(CH+GAP));
+    canvas.style.display='block';
+    document.getElementById('uploadTap').style.display='none';
+    document.getElementById('btnDl').disabled=false;
+    // Fit canvas to zone
+    const zone=document.getElementById('canvasZone');
+    const zw=zone.clientWidth,zh=zone.clientHeight;
+    const scale=Math.min(zw/totalW,zh/panelH);
+    canvas.style.width=(totalW*scale)+'px';
+    canvas.style.height=(panelH*scale)+'px';
+    setStatus('Done · tap Download to save');
+    setTimeout(()=>setStatus(''),3000);
+  },20);
+}
+
+function setStatus(t){
+  const p=document.getElementById('statusPill');
+  p.textContent=t;
+  p.classList.toggle('visible',t.length>0);
+}
+
+// ── Placeholders ────────────────────────────────────────────────
+(function(){
+  const cp=document.getElementById('phCol');
+  for(let i=0;i<25;i++){
+    const d=document.createElement('div');d.className='ph-cell';
+    d.style.background='#F28020';d.style.opacity='0.18';cp.appendChild(d);
+  }
+  const bp=document.getElementById('phBW');
+  for(let i=0;i<25;i++){
+    const d=document.createElement('div');d.className='ph-cell';
+    d.style.background=i%7===0?'#E8181A':i%3===0?'#222':'#E8E0D0';
+    d.style.opacity='0.22';bp.appendChild(d);
+  }
+})();
+
+// ── File loading ────────────────────────────────────────────────
+function loadFile(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  setStatus('Loading…');
+  const r=new FileReader();
+  r.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{srcImg=img;render();};
+    img.src=ev.target.result;
+  };
+  r.readAsDataURL(file);
+}
+
+// Upload tap zone (before image)
+const uploadTap=document.getElementById('uploadTap');
+uploadTap.addEventListener('click',()=>document.getElementById('fi').click());
+uploadTap.addEventListener('dragover',e=>{e.preventDefault();uploadTap.classList.add('over');});
+uploadTap.addEventListener('dragleave',()=>uploadTap.classList.remove('over'));
+uploadTap.addEventListener('drop',e=>{e.preventDefault();uploadTap.classList.remove('over');loadFile(e.dataTransfer.files[0]);});
+document.getElementById('fi').addEventListener('change',e=>loadFile(e.target.files[0]));
+
+// Upload button in action bar
+document.getElementById('btnUpload').addEventListener('click',()=>document.getElementById('fi2').click());
+document.getElementById('fi2').addEventListener('change',e=>loadFile(e.target.files[0]));
+
+// Sliders
+function bindSlider(id,vid){
+  const s=document.getElementById(id),v=document.getElementById(vid);
+  s.addEventListener('input',()=>{v.textContent=s.value;if(srcImg)render();});
+}
+bindSlider('slC','vC');bindSlider('slB','vB');bindSlider('slT','vT');
+bindSlider('slBC','vBC');bindSlider('slBT','vBT');bindSlider('slBL','vBL');bindSlider('slBG','vBG');
+
+// Sheet toggle
+const sheet=document.getElementById('sheet');
+document.getElementById('sheetHandle').addEventListener('click',()=>sheet.classList.toggle('open'));
+
+// Download
+document.getElementById('btnDl').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.download='warhol-banksy-diptych.png';
+  a.href=document.getElementById('mainCanvas').toDataURL('image/png');
+  a.click();
+  setStatus('Saved!');
+  setTimeout(()=>setStatus(''),2000);
+});
+</script>
+</body>
+</html>
+ms:baseline;gap:14px;flex-shrink:0}
   header h1{font-family:'Anton',sans-serif;font-size:1.45rem;letter-spacing:.1em;color:#F9C020;text-shadow:2px 2px 0 #F28020;text-transform:uppercase}
   .h-x{color:#E8181A;font-family:'Anton',sans-serif;font-size:1.45rem}
   header .sub{font-size:.56rem;color:#444;letter-spacing:.18em;text-transform:uppercase}
